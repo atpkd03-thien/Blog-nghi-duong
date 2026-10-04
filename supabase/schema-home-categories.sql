@@ -1,0 +1,3 @@
+-- Home category section uses the existing public.project_categories table
+-- and public.projects.category_id foreign key. No additional table is required.
+-- The Admin > Danh mục dự án screen is the CRUD interface for these categories.
