@@ -242,31 +242,72 @@ export default function ProjectPage() {
 
   return (
     <main className="project-page">
-      <section className="project-overview container" id="tong-quan">
-        <div className="project-section-kicker">01. TỔNG QUAN</div>
-        <div className="project-overview-heading">
-          <div>
-            <h1>{project.name}</h1>
-            {project.location && (
-              <p className="project-location">📍 {project.location}</p>
-            )}
-          </div>
-          <a className="btn btn-primary" href="#dau-tu">
-            Xem cơ hội đầu tư
-          </a>
-        </div>
-        <ProjectOverviewSlider
-          images={projectImages}
-          fallback={project.image_url}
-          alt={project.name}
-        />
+     <section className="project-overview container" id="tong-quan">
+    <div className="project-section-kicker">01. TỔNG QUAN</div>
+    
+    <div className="project-overview-heading">
+      <div>
+        <h1>{project.name}</h1>
+        {project.location && (
+          <p className="project-location">📍 {project.location}</p>
+        )}
+      </div>
+      <a className="btn btn-primary" href="#dau-tu">
+        Xem cơ hội đầu tư
+      </a>
+    </div>
+
+    <ProjectOverviewSlider
+      images={projectImages}
+      fallback={project.image_url}
+      alt={project.name}
+    />
+
+    {/* Bắt đầu chia 2 cột bằng Flexbox inline-style */}
+    <div 
+      className="project-overview-content" 
+      style={{ 
+        display: 'flex', 
+        gap: '2rem', 
+        marginTop: '2rem',
+        flexWrap: 'wrap' // Tự động xuống hàng trên giao diện mobile
+      }}
+    >
+      {/* Phần 1: Nội dung mô tả bên TRÁI */}
+      <div 
+        className="project-description-wrapper"
+        style={{ flex: '1 1 500px', minWidth: '300px' }} // Chiếm phần lớn không gian, co giãn linh hoạt
+      >
         {project.description && (
           <RichTextDisplay
             html={project.description}
             className="project-overview-description rich-output"
           />
         )}
-      </section>
+      </div>
+
+      {/* Phần 2: Bản đồ Google Map bên PHẢI */}
+      <div 
+        className="project-map-wrapper" 
+        style={{ 
+          flex: '1 1 350px', // Chiếm không gian cột bên phải
+          minWidth: '300px' 
+        }}
+      >
+        <div className="project-map" style={{ width: '100%' }}>
+          <iframe 
+            src="https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d601.8041330684888!2d107.73539625043945!3d11.599199918304263!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e1!3m2!1svi!2s!4v1791191995799!5m2!1svi!2s" 
+            width="100%" // Đặt 100% để bản đồ khít theo khung cột bên phải
+            height="350" // Tăng nhẹ chiều cao từ 250 lên 350 để cân đối với cột chữ
+            style={{ border: 0, borderRadius: '8px' }} // Thêm bo góc nhẹ cho hiện đại
+            allowFullScreen
+            loading="lazy" 
+            referrerPolicy="strict-origin-when-cross-origin"
+          />
+        </div>
+      </div>
+    </div>
+  </section>
 
       <section className="project-section project-section-soft" id="tien-ich">
         <div className="container">
