@@ -59,6 +59,13 @@ type Tour = {
   description: string | null;
   image_url: string | null;
   status: string;
+  
+};
+type ProjectAd = {
+  id: string;
+  project_id: string;
+  image_url: string;
+  sort_order: number;
 };
 
 function PlaceCard({ item }: { item: Place }) {
@@ -113,6 +120,7 @@ function TourCard({ item }: { item: Tour }) {
 
 export default function ProjectPage() {
   const { slug } = useParams<{ slug: string }>();
+  const [projectAds, setProjectAds] = useState<ProjectAd[]>([]);
   const s = supabaseBrowser();
   const [project, setProject] = useState<Project | null>(null);
   const [properties, setProperties] = useState<Property[]>([]);
@@ -157,6 +165,7 @@ export default function ProjectPage() {
           { data: placeData },
           { data: tourData },
           { data: projectImageData },
+          { data: projectAdData },
         ] = await Promise.all([
           s
             .from("properties")
@@ -182,12 +191,19 @@ export default function ProjectPage() {
             .eq("project_id", projectData.id)
             .order("sort_order", { ascending: true })
             .order("created_at", { ascending: true }),
+          s
+            .from("project_ads")
+            .select("id,project_id,image_url,sort_order")
+            .eq("project_id", projectData.id)
+            .order("sort_order", { ascending: true })
+            .order("created_at", { ascending: true }),
         ]);
         const list = propertyData || [];
         setProperties(list);
         setPlaces((placeData || []) as Place[]);
         setTours(tourData || []);
         setProjectImages((projectImageData || []) as ProjectImage[]);
+        setProjectAds((projectAdData || []) as ProjectAd[]);
         if (list.length) {
           const ids = list.map((x) => x.id);
           const { data: imageData } = await s
@@ -286,26 +302,44 @@ export default function ProjectPage() {
         )}
       </div>
 
-      {/* Phần 2: Bản đồ Google Map bên PHẢI */}
-      <div 
-        className="project-map-wrapper" 
-        style={{ 
-          flex: '1 1 350px', // Chiếm không gian cột bên phải
-          minWidth: '300px' 
+     {/* Phần 2: Hai hình ảnh quảng cáo bên PHẢI */}
+<div
+  className="project-ads-wrapper"
+  style={{
+    flex: "1 1 350px",
+    minWidth: "300px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+    marginTop: "150px",
+  }}
+>
+  {projectAds.map((ad, index) => (
+    <div
+      key={ad.id}
+      className="project-ad-card"
+      style={{
+        width: "100%",
+        overflow: "hidden",
+        marginBottom: "30px",
+        borderRadius: "20px",
+      }}
+    >
+      <img
+        src={ad.image_url}
+        alt={`Quảng cáo ${index + 1}`}
+        loading="lazy"
+        style={{
+          display: "block",
+         
+          width: "100%",
+          aspectRatio: "16 / 9",
+          objectFit: "cover",
         }}
-      >
-        <div className="project-map" style={{ width: '100%' }}>
-          <iframe 
-            src="https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d601.8041330684888!2d107.73539625043945!3d11.599199918304263!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e1!3m2!1svi!2s!4v1791191995799!5m2!1svi!2s" 
-            width="100%" // Đặt 100% để bản đồ khít theo khung cột bên phải
-            height="350" // Tăng nhẹ chiều cao từ 250 lên 350 để cân đối với cột chữ
-            style={{ border: 0, borderRadius: '8px' }} // Thêm bo góc nhẹ cho hiện đại
-            allowFullScreen
-            loading="lazy" 
-            referrerPolicy="strict-origin-when-cross-origin"
-          />
-        </div>
-      </div>
+      />
+    </div>
+  ))}
+</div>
     </div>
   </section>
 

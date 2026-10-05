@@ -35,12 +35,7 @@ type Property = {
   status: string;
   image_url: string | null;
 };
-type ProjectImage = {
-  id: string;
-  project_id: string;
-  image_url: string;
-  sort_order: number;
-};
+
 
 type PlaceForm = {
   section: Place["section"];
@@ -50,6 +45,18 @@ type PlaceForm = {
   distance_km: string;
   note: string;
   image_url: string;
+};
+type ProjectImage = {
+  id: string;
+  project_id: string;
+  image_url: string;
+  sort_order: number;
+};
+type ProjectAd = {
+  id: string;
+  project_id: string;
+  image_url: string;
+  sort_order: number;
 };
 
 const emptyPlace: PlaceForm = {
@@ -82,6 +89,7 @@ export default function ProjectContentPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const s = supabaseBrowser();
+
   const [project, setProject] = useState<Project | null>(null);
   const [overview, setOverview] = useState("");
   const [location, setLocation] = useState("");
@@ -89,9 +97,12 @@ export default function ProjectContentPage() {
   const [places, setPlaces] = useState<Place[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [projectImages, setProjectImages] = useState<ProjectImage[]>([]);
+  const [projectAds, setProjectAds] = useState<ProjectAd[]>([]);
+  const [adFiles, setAdFiles] = useState<File[]>([]);
   const [overviewFiles, setOverviewFiles] = useState<File[]>([]);
   const [activeSection, setActiveSection] = useState<
     | "overview"
+    | "ads"
     | "potential"
     | "amenity"
     | "connection"
@@ -106,8 +117,13 @@ export default function ProjectContentPage() {
   const [message, setMessage] = useState("");
 
   async function load() {
-    const [{ data: p }, { data: ps }, { data: props }, { data: pimgs }] =
-      await Promise.all([
+    const [
+      { data: p },
+  { data: ps },
+  { data: props },
+  { data: pimgs },
+  { data: ads },
+] = await Promise.all([
         s
           .from("projects")
           .select(
@@ -133,7 +149,13 @@ export default function ProjectContentPage() {
           .eq("project_id", id)
           .order("sort_order", { ascending: true })
           .order("created_at", { ascending: true }),
-      ]);
+      s
+  .from("project_ads")
+  .select("id,project_id,image_url,sort_order")
+  .eq("project_id", id)
+  .order("sort_order", { ascending: true })
+  .order("created_at", { ascending: true }),
+        ]);
     setProject(p);
     setOverview(p?.description || "");
     setLocation(p?.location || "");
@@ -141,7 +163,9 @@ export default function ProjectContentPage() {
     setPlaces(ps || []);
     setProperties(props || []);
     setProjectImages((pimgs || []) as ProjectImage[]);
+    setProjectAds((ads || []) as ProjectAd[]);
   }
+
   useEffect(() => {
     if (id) load();
   }, [id]);
@@ -362,6 +386,7 @@ export default function ProjectContentPage() {
       <nav className="project-admin-nav">
         {[
           ["overview", "01 Tổng quan"],
+          ["ads", "01A Quảng cáo"],
           ["amenity", "02 Tiện ích"],
           ["connection", "03 Kết nối"],
           ["potential", "04 Tiềm năng"],
@@ -504,7 +529,184 @@ export default function ProjectContentPage() {
           </div>
         </form>
       )}
+{activeSection === "ads" && (
+  <section className="card project-content-manager">
+    <div className="project-content-title">
+      <div>
+        <div className="eyebrow">01A. QUẢNG CÁO</div>
 
+        <h2>Ảnh quảng cáo bên phải</h2>
+
+        <p>
+          Quản lý tối đa 2 ảnh quảng cáo hiển thị bên phải phần Tổng quan.
+        </p>
+      </div>
+
+      <span className="project-section-count">
+        {projectAds.length}/2 ảnh
+      </span>
+    </div>
+
+    {/* DANH SÁCH ẢNH */}
+    <div className="project-overview-admin-grid">
+      {projectAds.map((ad, index) => (
+        <article
+          key={ad.id}
+          className="project-overview-admin-item"
+        >
+          <img
+            src={ad.image_url}
+            alt={`Quảng cáo ${index + 1}`}
+          />
+
+          <div>
+            <b>Quảng cáo {index + 1}</b>
+
+            <button
+              type="button"
+              className="btn btn-danger-small"
+              onClick={async () => {
+                if (!confirm("Xóa ảnh quảng cáo này?")) return;
+
+                setBusy(true);
+
+                try {
+                  const { error } = await s
+                    .from("project_ads")
+                    .delete()
+                    .eq("id", ad.id);
+
+                  if (error) throw error;
+
+                  setMessage("Đã xóa ảnh quảng cáo.");
+
+                  await load();
+                } catch (e: any) {
+                  setMessage(
+                    e?.message ||
+                      "Không thể xóa ảnh quảng cáo."
+                  );
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              Xóa
+            </button>
+          </div>
+        </article>
+      ))}
+
+      {!projectAds.length && (
+        <div className="project-empty-inline">
+          Chưa có ảnh quảng cáo.
+        </div>
+      )}
+    </div>
+
+    {/* UPLOAD */}
+    <div style={{ marginTop: 18 }}>
+      <label className="editor-label">
+        Thêm ảnh quảng cáo
+      </label>
+
+      <input
+        className="input"
+        type="file"
+        accept="image/*"
+        multiple
+        disabled={
+          busy || projectAds.length >= 2
+        }
+        onChange={(e) => {
+          setAdFiles(
+            Array.from(e.target.files || []).slice(
+              0,
+              2 - projectAds.length
+            )
+          );
+        }}
+      />
+
+      <p className="field-help">
+        Tối đa 2 ảnh. Khuyến nghị ảnh ngang tỷ lệ 16:9.
+      </p>
+
+      {adFiles.length > 0 && (
+        <div
+          className="actions-row"
+          style={{ marginTop: 12 }}
+        >
+          <span className="field-help">
+            Đã chọn {adFiles.length} ảnh.
+          </span>
+
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setMessage("");
+
+              try {
+                const remaining =
+                  2 - projectAds.length;
+
+                if (adFiles.length > remaining) {
+                  throw new Error(
+                    `Chỉ được thêm tối đa ${remaining} ảnh.`
+                  );
+                }
+
+                for (
+                  let i = 0;
+                  i < adFiles.length;
+                  i++
+                ) {
+                  const url = await uploadFile(
+                    adFiles[i],
+                    "project-ads"
+                  );
+
+                  const { error } = await s
+                    .from("project_ads")
+                    .insert({
+                      project_id: id,
+                      image_url: url,
+                      sort_order:
+                        projectAds.length + i,
+                    });
+
+                  if (error) throw error;
+                }
+
+                setAdFiles([]);
+
+                setMessage(
+                  "Đã thêm ảnh quảng cáo."
+                );
+
+                await load();
+              } catch (e: any) {
+                setMessage(
+                  e?.message ||
+                    "Có lỗi khi thêm ảnh quảng cáo."
+                );
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {busy
+              ? "Đang lưu..."
+              : "＋ Thêm ảnh quảng cáo"}
+          </button>
+        </div>
+      )}
+    </div>
+  </section>
+)}
       {activeSection === "potential" && (
         <form
           className="card project-content-editor-card"
