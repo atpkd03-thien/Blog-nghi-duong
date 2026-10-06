@@ -534,7 +534,7 @@ export default function Home() {
               rel="noreferrer"
             >
               <i className="bi bi-telephone-fill" />
-              <i>⠀</i> Zalo
+              <i>⠀</i> Zalo 
             </a>
 
             <a
@@ -549,4 +549,6 @@ export default function Home() {
       </section>
     </main>
   );
+
 }
+
