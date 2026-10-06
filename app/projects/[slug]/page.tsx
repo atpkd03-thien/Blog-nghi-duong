@@ -352,6 +352,7 @@ export default function ProjectPage() {
     display: "flex",
     flexDirection: "column",
     gap: "16px",
+    marginTop: "120px"
   }}
 >
   {projectAds.map((ad, index) => (
@@ -360,6 +361,7 @@ export default function ProjectPage() {
       className="project-ad-card"
       style={{
         width: "100%",
+        margin: "10px",
         overflow: "hidden",
         borderRadius: "10px",
       }}
