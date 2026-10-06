@@ -7,6 +7,7 @@ import SiteShell from './components/site-shell'
 
 export const metadata: Metadata = {
   title: 'Đất nghỉ dưỡng Bảo Lộc',
+  
   description: 'Thông tin đất nghỉ dưỡng, dự án và bất động sản tại Bảo Lộc.',
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
   openGraph: {
@@ -14,11 +15,15 @@ export const metadata: Metadata = {
     description: 'Thông tin đất nghỉ dưỡng, dự án và bất động sản tại Bảo Lộc.',
     type: 'website',
   },
+  icons: {
+     icon: '/images/favicon.svg',
+  },
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="vi">
+      
       <body>
         <SiteShell>{children}</SiteShell>
       </body>

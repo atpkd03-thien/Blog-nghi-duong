@@ -122,22 +122,28 @@ function PlaceCard({
   );
 }
 
-function TourCard({ item }: { item: Tour }) {
+function TourCard({ item, onClick }: { item: Tour; onClick?: () => void }) {
   return (
-    <article className="project-tour-card">
+    <article
+      className="project-tour-card"
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={(e) => {
+        if (onClick && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      style={onClick ? { cursor: "pointer" } : undefined}
+    >
       {item.image_url ? (
         <img src={item.image_url} alt={item.title} />
       ) : (
         <div className="project-tour-placeholder">DU LỊCH</div>
       )}
       <div className="project-tour-body">
-        <span className="project-place-category">TRẢI NGHIỆM</span>
         <h3>{item.title}</h3>
-        <p className="project-tour-destination">📍 {item.destination}</p>
-        {item.description && <RichTextPreview html={item.description} />}
-        <div className="project-tour-foot">
-         <a href="https://zalo.me/0385795379"></a> <strong >Liên hệ tư vấn</strong>
-        </div>
       </div>
     </article>
   );
@@ -148,6 +154,7 @@ export default function ProjectPage() {
   const [projectAds, setProjectAds] = useState<ProjectAd[]>([]);
   const [placeVideos, setPlaceVideos] = useState<ProjectPlaceVideo[]>([]);
   const [selectedAmenity, setSelectedAmenity] = useState<Place | null>(null);
+  const [selectedTour, setSelectedTour] = useState<Tour | null>(null);
   const s = supabaseBrowser();
   const [project, setProject] = useState<Project | null>(null);
   const [properties, setProperties] = useState<Property[]>([]);
@@ -352,7 +359,6 @@ export default function ProjectPage() {
     display: "flex",
     flexDirection: "column",
     gap: "16px",
-    marginTop: "120px"
   }}
 >
   {projectAds.map((ad, index) => (
@@ -361,7 +367,6 @@ export default function ProjectPage() {
       className="project-ad-card"
       style={{
         width: "100%",
-        margin: "10px",
         overflow: "hidden",
         borderRadius: "10px",
       }}
@@ -555,13 +560,150 @@ export default function ProjectPage() {
               </div>
               <div className="project-tours-grid">
                 {tours.slice(0, 6).map((x) => (
-                  <TourCard key={x.id} item={x} />
+                  <TourCard key={x.id} item={x} onClick={() => setSelectedTour(x)} />
                 ))}
               </div>
             </>
           )}
         </div>
       </section>
+
+      {selectedTour && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Thông tin ${selectedTour.title}`}
+          onClick={() => setSelectedTour(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            background: "rgba(10, 20, 15, 0.72)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "24px",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(980px, 100%)",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              background: "#fff",
+              borderRadius: "24px",
+              padding: "28px",
+              boxShadow: "0 24px 80px rgba(0,0,0,.28)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: "20px",
+                marginBottom: "22px",
+              }}
+            >
+              <div>
+                <div className="project-section-kicker">CHI TIẾT TOUR & TRẢI NGHIỆM</div>
+                <h2 style={{ margin: "6px 0 0" }}>{selectedTour.title}</h2>
+                <p style={{ margin: "8px 0 0", color: "#64748b" }}>
+                  📍 {selectedTour.destination}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setSelectedTour(null)}
+                aria-label="Đóng"
+              >
+                ✕ Đóng
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                gap: "24px",
+                alignItems: "start",
+              }}
+            >
+              <div>
+                {selectedTour.image_url ? (
+                  <img
+                    src={selectedTour.image_url}
+                    alt={selectedTour.title}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      aspectRatio: "4 / 3",
+                      objectFit: "cover",
+                      borderRadius: "18px",
+                      background: "#edf3ef",
+                    }}
+                  />
+                ) : (
+                  <div
+                    className="project-tour-placeholder"
+                    style={{ borderRadius: "18px" }}
+                  >
+                    DU LỊCH
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div
+                  style={{
+                    padding: "16px 18px",
+                    borderRadius: "16px",
+                    background: "#edf7f2",
+                    border: "1px solid #d9ebe1",
+                    marginBottom: "18px",
+                  }}
+                >
+                  <div className="project-place-category">GIÁ TOUR</div>
+                  <div
+                    style={{
+                      marginTop: "5px",
+                      fontSize: "28px",
+                      fontWeight: 900,
+                      color: "var(--brand)",
+                    }}
+                  >
+                    {selectedTour.price || "Liên hệ"}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: "18px" }}>
+                  <div className="project-place-category">LỊCH TRÌNH / NỘI DUNG</div>
+                  {selectedTour.description ? (
+                    <RichTextDisplay
+                      html={selectedTour.description}
+                      className="rich-output"
+                    />
+                  ) : (
+                    <p style={{ color: "#64748b", lineHeight: 1.7 }}>
+                      Thông tin chi tiết tour đang được cập nhật.
+                    </p>
+                  )}
+                </div>
+
+                <a
+                  className="btn btn-primary"
+                  href={`tel:${phone}`}
+                  style={{ width: "100%", justifyContent: "center" }}
+                >
+                  ☎ Liên hệ tư vấn tour
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedAmenity && (
         <div

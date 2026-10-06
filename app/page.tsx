@@ -148,7 +148,7 @@ export default function Home() {
                 className="btn btn-dark"
                 href={`tel:${settings.phone.replace(/\s/g, "")}`}
               >
-                <i className="bi bi-telephone-fill" /> {settings.phone}
+                <i className="bi bi-whatsapp" /><i>⠀</i> {settings.phone}
               </a>
               <a
                 className="btn btn-zalo"
@@ -156,7 +156,7 @@ export default function Home() {
                 target="_blank"
                 rel="noreferrer"
               >
-                <b>Z</b> Zalo
+                <i className="bi bi-telephone-fill" /><i>⠀</i> Zalo
               </a>
             </div>
           </div>
@@ -206,7 +206,7 @@ export default function Home() {
           </div>
           <div className="social-links">
             <a href={settings.zalo_url} target="_blank" rel="noreferrer">
-              <b>Z</b> Zalo
+              <i className="bi bi-telephone-fill" /><i>⠀</i> Zalo
             </a>
             <a href={settings.facebook_url} target="_blank" rel="noreferrer">
               <i className="bi bi-facebook" /> Facebook
