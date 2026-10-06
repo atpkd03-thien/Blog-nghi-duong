@@ -154,7 +154,7 @@ export default function ProjectPage() {
   const [projectAds, setProjectAds] = useState<ProjectAd[]>([]);
   const [placeVideos, setPlaceVideos] = useState<ProjectPlaceVideo[]>([]);
   const [selectedAmenity, setSelectedAmenity] = useState<Place | null>(null);
-  const [selectedTour, setSelectedTour] = useState<Tour | null>(null);
+  // const [selectedTour, setSelectedTour] = useState<Tour | null>(null);
   const s = supabaseBrowser();
   const [project, setProject] = useState<Project | null>(null);
   const [properties, setProperties] = useState<Property[]>([]);
@@ -162,6 +162,7 @@ export default function ProjectPage() {
   const [images, setImages] = useState<Record<string, ImageItem[]>>({});
   const [places, setPlaces] = useState<Place[]>([]);
   const [tours, setTours] = useState<Tour[]>([]);
+  const [selectedTour, setSelectedTour] = useState<Tour | null>(null);
   const [settings, setSettings] = useState<Settings>({
     phone: "038 579 5379",
     zalo_url: "https://zalo.me/0385795379",
