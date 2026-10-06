@@ -67,10 +67,35 @@ type ProjectAd = {
   image_url: string;
   sort_order: number;
 };
+type ProjectPlaceVideo = {
+  id: string;
+  project_place_id: string;
+  video_url: string;
+  title: string | null;
+  sort_order: number;
+};
 
-function PlaceCard({ item }: { item: Place }) {
+function PlaceCard({
+  item,
+  onClick,
+}: {
+  item: Place;
+  onClick?: () => void;
+}) {
   return (
-    <article className="project-place-card">
+    <article
+      className="project-place-card"
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={(e) => {
+        if (onClick && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      style={onClick ? { cursor: "pointer" } : undefined}
+    >
       {item.image_url ? (
         <img
           src={item.image_url}
@@ -121,6 +146,8 @@ function TourCard({ item }: { item: Tour }) {
 export default function ProjectPage() {
   const { slug } = useParams<{ slug: string }>();
   const [projectAds, setProjectAds] = useState<ProjectAd[]>([]);
+  const [placeVideos, setPlaceVideos] = useState<ProjectPlaceVideo[]>([]);
+  const [selectedAmenity, setSelectedAmenity] = useState<Place | null>(null);
   const s = supabaseBrowser();
   const [project, setProject] = useState<Project | null>(null);
   const [properties, setProperties] = useState<Property[]>([]);
@@ -204,6 +231,20 @@ export default function ProjectPage() {
         setTours(tourData || []);
         setProjectImages((projectImageData || []) as ProjectImage[]);
         setProjectAds((projectAdData || []) as ProjectAd[]);
+
+        const placeIds = (placeData || []).map((x: Place) => x.id);
+        if (placeIds.length) {
+          const { data: videoData } = await s
+            .from("project_place_videos")
+            .select("id,project_place_id,video_url,title,sort_order")
+            .in("project_place_id", placeIds)
+            .order("sort_order", { ascending: true })
+            .order("created_at", { ascending: true });
+          setPlaceVideos((videoData || []) as ProjectPlaceVideo[]);
+        } else {
+          setPlaceVideos([]);
+        }
+
         if (list.length) {
           const ids = list.map((x) => x.id);
           const { data: imageData } = await s
@@ -311,7 +352,6 @@ export default function ProjectPage() {
     display: "flex",
     flexDirection: "column",
     gap: "16px",
-    marginTop: "150px",
   }}
 >
   {projectAds.map((ad, index) => (
@@ -321,8 +361,7 @@ export default function ProjectPage() {
       style={{
         width: "100%",
         overflow: "hidden",
-        marginBottom: "30px",
-        borderRadius: "20px",
+        borderRadius: "10px",
       }}
     >
       <img
@@ -331,7 +370,6 @@ export default function ProjectPage() {
         loading="lazy"
         style={{
           display: "block",
-         
           width: "100%",
           aspectRatio: "16 / 9",
           objectFit: "cover",
@@ -357,7 +395,11 @@ export default function ProjectPage() {
           {internalAmenities.length ? (
             <div className="project-place-grid">
               {internalAmenities.map((x) => (
-                <PlaceCard key={x.id} item={x} />
+                <PlaceCard
+                  key={x.id}
+                  item={x}
+                  onClick={() => setSelectedAmenity(x)}
+                />
               ))}
             </div>
           ) : (
@@ -518,6 +560,114 @@ export default function ProjectPage() {
           )}
         </div>
       </section>
+
+      {selectedAmenity && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Video giới thiệu ${selectedAmenity.name}`}
+          onClick={() => setSelectedAmenity(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            background: "rgba(10, 20, 15, 0.72)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "24px",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(1120px, 100%)",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              background: "#fff",
+              borderRadius: "24px",
+              padding: "28px",
+              boxShadow: "0 24px 80px rgba(0,0,0,.28)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: "20px",
+                marginBottom: "22px",
+              }}
+            >
+              <div>
+                <div className="project-section-kicker">GIỚI THIỆU NỘI KHU</div>
+                <h2 style={{ margin: "6px 0 0" }}>{selectedAmenity.name}</h2>
+                <p style={{ margin: "8px 0 0", color: "#64748b" }}>
+                  Video giới thiệu và trải nghiệm thực tế.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setSelectedAmenity(null)}
+                aria-label="Đóng"
+              >
+                ✕ Đóng
+              </button>
+            </div>
+
+            {placeVideos.filter((v) => v.project_place_id === selectedAmenity.id).length ? (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                  gap: "18px",
+                }}
+              >
+                {placeVideos
+                  .filter((v) => v.project_place_id === selectedAmenity.id)
+                  .map((video, index) => (
+                    <article
+                      key={video.id}
+                      style={{
+                        borderRadius: "16px",
+                        overflow: "hidden",
+                        background: "#f3f6f4",
+                        border: "1px solid #e4ebe7",
+                      }}
+                    >
+                      <video
+                        src={video.video_url}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          aspectRatio: "16 / 9",
+                          objectFit: "cover",
+                          background: "#111",
+                        }}
+                      />
+                      <div style={{ padding: "14px 16px" }}>
+                        <div className="project-place-category">
+                          VIDEO {index + 1}
+                        </div>
+                        <h3 style={{ margin: "5px 0 0" }}>
+                          {video.title || `${selectedAmenity.name} — Video ${index + 1}`}
+                        </h3>
+                      </div>
+                    </article>
+                  ))}
+              </div>
+            ) : (
+              <div className="project-empty-inline">
+                Nội khu này chưa có video giới thiệu.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <section className="project-final-cta">
         <div className="container project-final-cta-inner">

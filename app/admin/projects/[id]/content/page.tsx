@@ -15,6 +15,7 @@ type Project = {
   potential_description: string | null;
   status: string;
 };
+
 type Place = {
   id: string;
   project_id: string;
@@ -27,6 +28,7 @@ type Place = {
   image_url: string | null;
   sort_order: number;
 };
+
 type Property = {
   id: string;
   title: string;
@@ -35,7 +37,6 @@ type Property = {
   status: string;
   image_url: string | null;
 };
-
 
 type PlaceForm = {
   section: Place["section"];
@@ -46,16 +47,25 @@ type PlaceForm = {
   note: string;
   image_url: string;
 };
+
 type ProjectImage = {
   id: string;
   project_id: string;
   image_url: string;
   sort_order: number;
 };
+
 type ProjectAd = {
   id: string;
   project_id: string;
   image_url: string;
+  sort_order: number;
+};
+type ProjectPlaceVideo = {
+  id: string;
+  project_place_id: string;
+  video_url: string;
+  title: string | null;
   sort_order: number;
 };
 
@@ -68,6 +78,7 @@ const emptyPlace: PlaceForm = {
   note: "",
   image_url: "",
 };
+
 const categoryOptions = [
   "Tiện ích",
   "Ăn uống",
@@ -98,8 +109,11 @@ export default function ProjectContentPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [projectImages, setProjectImages] = useState<ProjectImage[]>([]);
   const [projectAds, setProjectAds] = useState<ProjectAd[]>([]);
+  const [placeVideos, setPlaceVideos] = useState<ProjectPlaceVideo[]>([]);
+  const [videoFiles, setVideoFiles] = useState<File[]>([]);
   const [adFiles, setAdFiles] = useState<File[]>([]);
   const [overviewFiles, setOverviewFiles] = useState<File[]>([]);
+
   const [activeSection, setActiveSection] = useState<
     | "overview"
     | "ads"
@@ -109,6 +123,7 @@ export default function ProjectContentPage() {
     | "investment"
     | "travel"
   >("overview");
+
   const [placeForm, setPlaceForm] = useState(emptyPlace);
   const [editingPlace, setEditingPlace] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -119,51 +134,69 @@ export default function ProjectContentPage() {
   async function load() {
     const [
       { data: p },
-  { data: ps },
-  { data: props },
-  { data: pimgs },
-  { data: ads },
-] = await Promise.all([
-        s
-          .from("projects")
-          .select(
-            "id,name,slug,location,description,image_url,potential_description,status",
-          )
-          .eq("id", id)
-          .maybeSingle(),
-        s
-          .from("project_places")
-          .select("*")
-          .eq("project_id", id)
-          .order("section")
-          .order("sort_order")
-          .order("created_at"),
-        s
-          .from("properties")
-          .select("id,title,location,price,status,image_url")
-          .eq("project_id", id)
-          .order("created_at", { ascending: false }),
-        s
-          .from("project_images")
-          .select("id,project_id,image_url,sort_order")
-          .eq("project_id", id)
-          .order("sort_order", { ascending: true })
-          .order("created_at", { ascending: true }),
+      { data: ps },
+      { data: props },
+      { data: pimgs },
+      { data: ads },
+    ] = await Promise.all([
       s
-  .from("project_ads")
-  .select("id,project_id,image_url,sort_order")
-  .eq("project_id", id)
-  .order("sort_order", { ascending: true })
-  .order("created_at", { ascending: true }),
-        ]);
+        .from("projects")
+        .select(
+          "id,name,slug,location,description,image_url,potential_description,status",
+        )
+        .eq("id", id)
+        .maybeSingle(),
+
+      s
+        .from("project_places")
+        .select("*")
+        .eq("project_id", id)
+        .order("section")
+        .order("sort_order")
+        .order("created_at"),
+
+      s
+        .from("properties")
+        .select("id,title,location,price,status,image_url")
+        .eq("project_id", id)
+        .order("created_at", { ascending: false }),
+
+      s
+        .from("project_images")
+        .select("id,project_id,image_url,sort_order")
+        .eq("project_id", id)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true }),
+
+      s
+        .from("project_ads")
+        .select("id,project_id,image_url,sort_order")
+        .eq("project_id", id)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true }),
+    ]);
+
     setProject(p);
     setOverview(p?.description || "");
     setLocation(p?.location || "");
     setPotential(p?.potential_description || "");
-    setPlaces(ps || []);
-    setProperties(props || []);
+    setPlaces((ps || []) as Place[]);
+    setProperties((props || []) as Property[]);
     setProjectImages((pimgs || []) as ProjectImage[]);
     setProjectAds((ads || []) as ProjectAd[]);
+
+    const placeIds = (ps || []).map((x: Place) => x.id);
+    if (placeIds.length) {
+      const { data: videoData } = await s
+        .from("project_place_videos")
+        .select("id,project_place_id,video_url,title,sort_order")
+        .in("project_place_id", placeIds)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+      setPlaceVideos((videoData || []) as ProjectPlaceVideo[]);
+    } else {
+      setPlaceVideos([]);
+    }
   }
 
   useEffect(() => {
@@ -174,12 +207,14 @@ export default function ProjectContentPage() {
     () => places.filter((x) => x.section === activeSection),
     [places, activeSection],
   );
+
   const placeSection =
     activeSection === "amenity" ||
     activeSection === "connection" ||
     activeSection === "travel"
       ? activeSection
       : "amenity";
+
   const title =
     placeSection === "amenity"
       ? "Tiện ích nội khu"
@@ -190,11 +225,14 @@ export default function ProjectContentPage() {
   function resetPlace() {
     setEditingPlace(null);
     setFile(null);
+    setVideoFiles([]);
     setPlaceForm({ ...emptyPlace, section: placeSection });
   }
+
   function editPlace(x: Place) {
     setEditingPlace(x.id);
     setFile(null);
+    setVideoFiles([]);
     setPlaceForm({
       section: x.section,
       name: x.name,
@@ -210,10 +248,16 @@ export default function ProjectContentPage() {
   async function uploadFile(file: File, pathPrefix: string) {
     const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
     const path = `${pathPrefix}/${id}/${crypto.randomUUID()}.${ext}`;
+
     const { error } = await s.storage
       .from("media")
-      .upload(path, file, { contentType: file.type, upsert: false });
+      .upload(path, file, {
+        contentType: file.type,
+        upsert: false,
+      });
+
     if (error) throw error;
+
     return s.storage.from("media").getPublicUrl(path).data.publicUrl;
   }
 
@@ -221,9 +265,14 @@ export default function ProjectContentPage() {
     e.preventDefault();
     setBusy(true);
     setMessage("");
+
     try {
       let image_url = project?.image_url || null;
-      if (overviewFile) image_url = await uploadFile(overviewFile, "projects");
+
+      if (overviewFile) {
+        image_url = await uploadFile(overviewFile, "projects");
+      }
+
       const { error } = await s
         .from("projects")
         .update({
@@ -233,23 +282,40 @@ export default function ProjectContentPage() {
           updated_at: new Date().toISOString(),
         })
         .eq("id", id);
+
       if (error) throw error;
+
       setMessage("Đã lưu Tổng quan dự án.");
+
       if (overviewFiles.length) {
         const remaining = Math.max(0, 12 - projectImages.length);
-        if (overviewFiles.length > remaining)
+
+        if (overviewFiles.length > remaining) {
           throw new Error(
             `Slider tối đa 12 ảnh. Hiện còn ${remaining} vị trí.`,
           );
+        }
+
         const start = projectImages.length;
+
         for (let i = 0; i < overviewFiles.length; i++) {
-          const url = await uploadFile(overviewFiles[i], "project-overview");
+          const url = await uploadFile(
+            overviewFiles[i],
+            "project-overview",
+          );
+
           const { error: imageError } = await s
             .from("project_images")
-            .insert({ project_id: id, image_url: url, sort_order: start + i });
+            .insert({
+              project_id: id,
+              image_url: url,
+              sort_order: start + i,
+            });
+
           if (imageError) throw imageError;
         }
       }
+
       setOverviewFile(null);
       setOverviewFiles([]);
       await load();
@@ -264,6 +330,7 @@ export default function ProjectContentPage() {
     e.preventDefault();
     setBusy(true);
     setMessage("");
+
     try {
       const { error } = await s
         .from("projects")
@@ -272,7 +339,9 @@ export default function ProjectContentPage() {
           updated_at: new Date().toISOString(),
         })
         .eq("id", id);
+
       if (error) throw error;
+
       setMessage("Đã lưu Tiềm năng dự án.");
       await load();
     } catch (e: any) {
@@ -284,15 +353,22 @@ export default function ProjectContentPage() {
 
   async function savePlace(e: React.FormEvent) {
     e.preventDefault();
+
     if (!placeForm.name.trim()) {
       setMessage("Vui lòng nhập tên.");
       return;
     }
+
     setBusy(true);
     setMessage("");
+
     try {
       let image_url = placeForm.image_url || null;
-      if (file) image_url = await uploadFile(file, "project-places");
+
+      if (file) {
+        image_url = await uploadFile(file, "project-places");
+      }
+
       const payload = {
         project_id: id,
         section: placeForm.section,
@@ -303,7 +379,9 @@ export default function ProjectContentPage() {
             ? null
             : Number(placeForm.travel_minutes),
         distance_km:
-          placeForm.distance_km === "" ? null : Number(placeForm.distance_km),
+          placeForm.distance_km === ""
+            ? null
+            : Number(placeForm.distance_km),
         note: placeForm.note.trim() || null,
         image_url,
         sort_order: editingPlace
@@ -311,11 +389,20 @@ export default function ProjectContentPage() {
           : currentPlaces.length,
         updated_at: new Date().toISOString(),
       };
+
       const r = editingPlace
-        ? await s.from("project_places").update(payload).eq("id", editingPlace)
+        ? await s
+            .from("project_places")
+            .update(payload)
+            .eq("id", editingPlace)
         : await s.from("project_places").insert(payload);
+
       if (r.error) throw r.error;
-      setMessage(editingPlace ? "Đã cập nhật địa điểm." : "Đã thêm địa điểm.");
+
+      setMessage(
+        editingPlace ? "Đã cập nhật địa điểm." : "Đã thêm địa điểm.",
+      );
+
       resetPlace();
       await load();
     } catch (e: any) {
@@ -325,31 +412,103 @@ export default function ProjectContentPage() {
     }
   }
 
+  async function addPlaceVideos() {
+    if (!editingPlace || placeForm.section !== "amenity") return;
+    if (!videoFiles.length) return;
+
+    const existing = placeVideos.filter(
+      (v) => v.project_place_id === editingPlace,
+    );
+    const remaining = 3 - existing.length;
+
+    if (videoFiles.length > remaining) {
+      setMessage(`Chỉ được tối đa 3 video cho mỗi nội khu. Còn ${remaining} vị trí.`);
+      return;
+    }
+
+    setBusy(true);
+    setMessage("");
+    try {
+      for (let i = 0; i < videoFiles.length; i++) {
+        const video = videoFiles[i];
+        const url = await uploadFile(video, "project-place-videos");
+        const cleanTitle = video.name.replace(/\.[^/.]+$/, "").trim();
+        const { error } = await s.from("project_place_videos").insert({
+          project_place_id: editingPlace,
+          video_url: url,
+          title: cleanTitle || `Video ${existing.length + i + 1}`,
+          sort_order: existing.length + i,
+        });
+        if (error) throw error;
+      }
+      setVideoFiles([]);
+      setMessage("Đã thêm video giới thiệu.");
+      await load();
+    } catch (e: any) {
+      setMessage(e?.message || "Có lỗi khi thêm video.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removePlaceVideo(videoId: string) {
+    if (!confirm("Xóa video giới thiệu này?")) return;
+    setBusy(true);
+    try {
+      const { error } = await s
+        .from("project_place_videos")
+        .delete()
+        .eq("id", videoId);
+      if (error) throw error;
+      setMessage("Đã xóa video giới thiệu.");
+      await load();
+    } catch (e: any) {
+      setMessage(e?.message || "Không thể xóa video.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function removePlace(placeId: string) {
     if (!confirm("Xóa mục này?")) return;
-    const { error } = await s.from("project_places").delete().eq("id", placeId);
-    if (error) setMessage(error.message);
-    else {
+
+    const { error } = await s
+      .from("project_places")
+      .delete()
+      .eq("id", placeId);
+
+    if (error) {
+      setMessage(error.message);
+    } else {
       setMessage("Đã xóa.");
       load();
     }
   }
+
   async function removeProperty(propertyId: string) {
-    if (!confirm("Xóa BĐS này? Thao tác này sẽ xóa BĐS khỏi dự án.")) return;
-    const { error } = await s.from("properties").delete().eq("id", propertyId);
-    if (error) setMessage(error.message);
-    else {
+    if (!confirm("Xóa BĐS này? Thao tác này sẽ xóa BĐS khỏi dự án."))
+      return;
+
+    const { error } = await s
+      .from("properties")
+      .delete()
+      .eq("id", propertyId);
+
+    if (error) {
+      setMessage(error.message);
+    } else {
       setMessage("Đã xóa BĐS.");
       load();
     }
   }
 
-  if (!project)
+  if (!project) {
     return (
       <main className="container section">
         <div className="empty">Đang tải nội dung dự án...</div>
       </main>
     );
+  }
 
   const placeTabs: [string, string][] = [
     ["amenity", "🌿 Tiện ích nội khu"],
@@ -365,6 +524,7 @@ export default function ProjectContentPage() {
           <h1>Quản lý landing — {project.name}</h1>
           <p>Tất cả nội dung của trang dự án được CRUD tại đây.</p>
         </div>
+
         <div className="actions-row">
           <a
             className="btn btn-primary"
@@ -374,6 +534,7 @@ export default function ProjectContentPage() {
           >
             Xem website
           </a>
+
           <button
             className="btn"
             onClick={() => router.push("/admin/projects")}
@@ -420,12 +581,14 @@ export default function ProjectContentPage() {
             </div>
             <span className="project-section-count">Rich Text</span>
           </div>
+
           <input
             className="input"
             placeholder="Vị trí dự án"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
           />
+
           <div style={{ marginTop: 12 }}>
             <RichTextEditor
               value={overview}
@@ -433,56 +596,76 @@ export default function ProjectContentPage() {
               placeholder="Tổng quan, vị trí, quy mô, định hướng..."
             />
           </div>
+
           <div className="project-admin-image-row">
             <div>
               {project.image_url ? (
                 <img src={project.image_url} alt={project.name} />
               ) : (
-                <div className="project-admin-image-empty">Ảnh dự án</div>
+                <div className="project-admin-image-empty">
+                  Ảnh dự án
+                </div>
               )}
             </div>
+
             <div>
               <label className="editor-label">Ảnh đại diện dự án</label>
               <input
                 className="input"
                 type="file"
                 accept="image/*"
-                onChange={(e) => setOverviewFile(e.target.files?.[0] || null)}
+                onChange={(e) =>
+                  setOverviewFile(e.target.files?.[0] || null)
+                }
               />
               <p className="field-help">
                 Ảnh này dùng làm ảnh dự phòng nếu slider chưa có ảnh.
               </p>
             </div>
           </div>
+
           <div className="project-overview-slider-admin">
-            <div className="project-content-title" style={{ marginBottom: 12 }}>
+            <div
+              className="project-content-title"
+              style={{ marginBottom: 12 }}
+            >
               <div>
                 <h3>Slider Tổng quan</h3>
                 <p>
                   Thêm tối đa 12 ảnh. Website sẽ tự chuyển ảnh mỗi 4,5 giây.
                 </p>
               </div>
+
               <span className="project-section-count">
                 {projectImages.length}/12
               </span>
             </div>
+
             <div className="project-overview-admin-grid">
               {projectImages.map((img, index) => (
-                <article key={img.id} className="project-overview-admin-item">
+                <article
+                  key={img.id}
+                  className="project-overview-admin-item"
+                >
                   <img src={img.image_url} alt={`Ảnh ${index + 1}`} />
+
                   <div>
                     <b>Ảnh {index + 1}</b>
+
                     <button
                       type="button"
                       className="btn btn-danger-small"
                       onClick={async () => {
                         if (!confirm("Xóa ảnh này khỏi slider?")) return;
+
                         const { error } = await s
                           .from("project_images")
                           .delete()
                           .eq("id", img.id);
-                        if (error) setMessage(error.message);
-                        else {
+
+                        if (error) {
+                          setMessage(error.message);
+                        } else {
                           setMessage("Đã xóa ảnh slider.");
                           load();
                         }
@@ -493,15 +676,21 @@ export default function ProjectContentPage() {
                   </div>
                 </article>
               ))}
+
               {!projectImages.length && (
                 <div className="project-empty-inline">
                   Chưa có ảnh slider. Hãy chọn nhiều ảnh bên dưới.
                 </div>
               )}
             </div>
-            <label className="editor-label" style={{ marginTop: 14 }}>
+
+            <label
+              className="editor-label"
+              style={{ marginTop: 14 }}
+            >
               Thêm ảnh vào slider
             </label>
+
             <input
               className="input"
               type="file"
@@ -516,12 +705,14 @@ export default function ProjectContentPage() {
                 )
               }
             />
+
             {overviewFiles.length > 0 && (
               <p className="field-help">
                 Đã chọn {overviewFiles.length} ảnh mới.
               </p>
             )}
           </div>
+
           <div className="actions-row">
             <button className="btn btn-primary" disabled={busy}>
               {busy ? "Đang lưu..." : "Lưu Tổng quan"}
@@ -529,184 +720,175 @@ export default function ProjectContentPage() {
           </div>
         </form>
       )}
-{activeSection === "ads" && (
-  <section className="card project-content-manager">
-    <div className="project-content-title">
-      <div>
-        <div className="eyebrow">01A. QUẢNG CÁO</div>
 
-        <h2>Ảnh quảng cáo bên phải</h2>
+      {activeSection === "ads" && (
+        <section className="card project-content-manager">
+          <div className="project-content-title">
+            <div>
+              <div className="eyebrow">01A. QUẢNG CÁO</div>
+              <h2>Ảnh quảng cáo bên phải</h2>
+              <p>
+                Quản lý tối đa 2 ảnh quảng cáo hiển thị bên phải phần Tổng
+                quan.
+              </p>
+            </div>
 
-        <p>
-          Quản lý tối đa 2 ảnh quảng cáo hiển thị bên phải phần Tổng quan.
-        </p>
-      </div>
-
-      <span className="project-section-count">
-        {projectAds.length}/2 ảnh
-      </span>
-    </div>
-
-    {/* DANH SÁCH ẢNH */}
-    <div className="project-overview-admin-grid">
-      {projectAds.map((ad, index) => (
-        <article
-          key={ad.id}
-          className="project-overview-admin-item"
-        >
-          <img
-            src={ad.image_url}
-            alt={`Quảng cáo ${index + 1}`}
-          />
-
-          <div>
-            <b>Quảng cáo {index + 1}</b>
-
-            <button
-              type="button"
-              className="btn btn-danger-small"
-              onClick={async () => {
-                if (!confirm("Xóa ảnh quảng cáo này?")) return;
-
-                setBusy(true);
-
-                try {
-                  const { error } = await s
-                    .from("project_ads")
-                    .delete()
-                    .eq("id", ad.id);
-
-                  if (error) throw error;
-
-                  setMessage("Đã xóa ảnh quảng cáo.");
-
-                  await load();
-                } catch (e: any) {
-                  setMessage(
-                    e?.message ||
-                      "Không thể xóa ảnh quảng cáo."
-                  );
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              Xóa
-            </button>
+            <span className="project-section-count">
+              {projectAds.length}/2 ảnh
+            </span>
           </div>
-        </article>
-      ))}
 
-      {!projectAds.length && (
-        <div className="project-empty-inline">
-          Chưa có ảnh quảng cáo.
-        </div>
-      )}
-    </div>
+          <div className="project-overview-admin-grid">
+            {projectAds.map((ad, index) => (
+              <article
+                key={ad.id}
+                className="project-overview-admin-item"
+              >
+                <img
+                  src={ad.image_url}
+                  alt={`Quảng cáo ${index + 1}`}
+                />
 
-    {/* UPLOAD */}
-    <div style={{ marginTop: 18 }}>
-      <label className="editor-label">
-        Thêm ảnh quảng cáo
-      </label>
+                <div>
+                  <b>Quảng cáo {index + 1}</b>
 
-      <input
-        className="input"
-        type="file"
-        accept="image/*"
-        multiple
-        disabled={
-          busy || projectAds.length >= 2
-        }
-        onChange={(e) => {
-          setAdFiles(
-            Array.from(e.target.files || []).slice(
-              0,
-              2 - projectAds.length
-            )
-          );
-        }}
-      />
+                  <button
+                    type="button"
+                    className="btn btn-danger-small"
+                    disabled={busy}
+                    onClick={async () => {
+                      if (!confirm("Xóa ảnh quảng cáo này?")) return;
 
-      <p className="field-help">
-        Tối đa 2 ảnh. Khuyến nghị ảnh ngang tỷ lệ 16:9.
-      </p>
+                      setBusy(true);
 
-      {adFiles.length > 0 && (
-        <div
-          className="actions-row"
-          style={{ marginTop: 12 }}
-        >
-          <span className="field-help">
-            Đã chọn {adFiles.length} ảnh.
-          </span>
+                      try {
+                        const { error } = await s
+                          .from("project_ads")
+                          .delete()
+                          .eq("id", ad.id);
 
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              setMessage("");
+                        if (error) throw error;
 
-              try {
-                const remaining =
-                  2 - projectAds.length;
+                        setMessage("Đã xóa ảnh quảng cáo.");
+                        await load();
+                      } catch (e: any) {
+                        setMessage(
+                          e?.message || "Không thể xóa ảnh quảng cáo.",
+                        );
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                  >
+                    Xóa
+                  </button>
+                </div>
+              </article>
+            ))}
 
-                if (adFiles.length > remaining) {
-                  throw new Error(
-                    `Chỉ được thêm tối đa ${remaining} ảnh.`
-                  );
-                }
+            {!projectAds.length && (
+              <div className="project-empty-inline">
+                Chưa có ảnh quảng cáo.
+              </div>
+            )}
+          </div>
 
-                for (
-                  let i = 0;
-                  i < adFiles.length;
-                  i++
-                ) {
-                  const url = await uploadFile(
-                    adFiles[i],
-                    "project-ads"
-                  );
+          <div style={{ marginTop: 18 }}>
+            <label className="editor-label">
+              Thêm ảnh quảng cáo
+            </label>
 
-                  const { error } = await s
-                    .from("project_ads")
-                    .insert({
-                      project_id: id,
-                      image_url: url,
-                      sort_order:
-                        projectAds.length + i,
-                    });
-
-                  if (error) throw error;
-                }
-
-                setAdFiles([]);
-
-                setMessage(
-                  "Đã thêm ảnh quảng cáo."
+            <input
+              className="input"
+              type="file"
+              accept="image/*"
+              multiple
+              disabled={busy || projectAds.length >= 2}
+              onChange={(e) => {
+                setAdFiles(
+                  Array.from(e.target.files || []).slice(
+                    0,
+                    2 - projectAds.length,
+                  ),
                 );
+              }}
+            />
 
-                await load();
-              } catch (e: any) {
-                setMessage(
-                  e?.message ||
-                    "Có lỗi khi thêm ảnh quảng cáo."
-                );
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            {busy
-              ? "Đang lưu..."
-              : "＋ Thêm ảnh quảng cáo"}
-          </button>
-        </div>
+            <p className="field-help">
+              Tối đa 2 ảnh. Khuyến nghị ảnh ngang tỷ lệ 16:9.
+            </p>
+
+            {adFiles.length > 0 && (
+              <div
+                className="actions-row"
+                style={{ marginTop: 12 }}
+              >
+                <span className="field-help">
+                  Đã chọn {adFiles.length} ảnh.
+                </span>
+
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    setMessage("");
+
+                    try {
+                      const remaining = 2 - projectAds.length;
+
+                      if (adFiles.length > remaining) {
+                        throw new Error(
+                          `Chỉ được thêm tối đa ${remaining} ảnh.`,
+                        );
+                      }
+
+                      const usedOrders = new Set(
+                        projectAds.map((ad) => ad.sort_order),
+                      );
+
+                      const freeOrders = [0, 1].filter(
+                        (order) => !usedOrders.has(order),
+                      );
+
+                      for (let i = 0; i < adFiles.length; i++) {
+                        const url = await uploadFile(
+                          adFiles[i],
+                          "project-ads",
+                        );
+
+                        const { error } = await s
+                          .from("project_ads")
+                          .insert({
+                            project_id: id,
+                            image_url: url,
+                            sort_order: freeOrders[i],
+                          });
+
+                        if (error) throw error;
+                      }
+
+                      setAdFiles([]);
+                      setMessage("Đã thêm ảnh quảng cáo.");
+                      await load();
+                    } catch (e: any) {
+                      setMessage(
+                        e?.message || "Có lỗi khi thêm ảnh quảng cáo.",
+                      );
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  {busy ? "Đang lưu..." : "＋ Thêm ảnh quảng cáo"}
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
       )}
-    </div>
-  </section>
-)}
+
       {activeSection === "potential" && (
         <form
           className="card project-content-editor-card"
@@ -723,11 +905,13 @@ export default function ProjectContentPage() {
             </div>
             <span className="project-section-count">Rich Text</span>
           </div>
+
           <RichTextEditor
             value={potential}
             onChange={setPotential}
             placeholder="Định hướng phát triển, cao tốc, tiềm năng đầu tư..."
           />
+
           <div className="actions-row">
             <button className="btn btn-primary" disabled={busy}>
               {busy ? "Đang lưu..." : "Lưu Tiềm năng"}
@@ -747,10 +931,12 @@ export default function ProjectContentPage() {
                 BĐS.
               </p>
             </div>
+
             <span className="project-section-count">
               {properties.length} BĐS
             </span>
           </div>
+
           <div className="actions-row" style={{ marginBottom: 18 }}>
             <a
               className="btn btn-primary"
@@ -759,14 +945,18 @@ export default function ProjectContentPage() {
               ＋ Thêm / quản lý BĐS
             </a>
           </div>
+
           <div className="project-content-items">
             {properties.map((x) => (
               <article className="project-content-item" key={x.id}>
                 {x.image_url ? (
                   <img src={x.image_url} alt={x.title} />
                 ) : (
-                  <div className="project-content-item-placeholder">🏡</div>
+                  <div className="project-content-item-placeholder">
+                    🏡
+                  </div>
                 )}
+
                 <div className="project-content-item-main">
                   <b>{x.title}</b>
                   <span>
@@ -774,6 +964,7 @@ export default function ProjectContentPage() {
                   </span>
                   <p>{x.price || "Liên hệ"}</p>
                 </div>
+
                 <div className="actions-row">
                   <a
                     className="btn"
@@ -781,12 +972,17 @@ export default function ProjectContentPage() {
                   >
                     Sửa
                   </a>
-                  <button className="btn" onClick={() => removeProperty(x.id)}>
+
+                  <button
+                    className="btn"
+                    onClick={() => removeProperty(x.id)}
+                  >
                     Xóa
                   </button>
                 </div>
               </article>
             ))}
+
             {!properties.length && (
               <div className="project-empty-inline">
                 Chưa có BĐS. Bấm “Thêm / quản lý BĐS”.
@@ -805,14 +1001,16 @@ export default function ProjectContentPage() {
               <div className="eyebrow">NỘI DUNG HÌNH ẢNH</div>
               <h2>{title}</h2>
               <p>
-                CRUD hình ảnh, danh mục, thời gian di chuyển, khoảng cách và ghi
-                chú.
+                CRUD hình ảnh, danh mục, thời gian di chuyển, khoảng cách và
+                ghi chú.
               </p>
             </div>
+
             <span className="project-section-count">
               {currentPlaces.length} mục
             </span>
           </div>
+
           <div className="project-content-tabs">
             {placeTabs.map(([key, label]) => (
               <button
@@ -828,11 +1026,13 @@ export default function ProjectContentPage() {
               </button>
             ))}
           </div>
+
           <div className="project-content-list-head">
             <div>
               <h3>{title}</h3>
               <p>{currentPlaces.length} mục đang hiển thị ngoài website</p>
             </div>
+
             <button
               type="button"
               className="btn btn-primary"
@@ -841,6 +1041,7 @@ export default function ProjectContentPage() {
               ＋ Thêm mục
             </button>
           </div>
+
           <form className="project-place-editor" onSubmit={savePlace}>
             <div className="project-place-editor-image">
               {placeForm.image_url ? (
@@ -848,6 +1049,7 @@ export default function ProjectContentPage() {
               ) : (
                 <div>🖼️ Ảnh 1:1</div>
               )}
+
               <input
                 className="input"
                 type="file"
@@ -855,34 +1057,45 @@ export default function ProjectContentPage() {
                 onChange={(e) => {
                   const f = e.target.files?.[0] || null;
                   setFile(f);
-                  if (f)
+
+                  if (f) {
                     setPlaceForm({
                       ...placeForm,
                       image_url: URL.createObjectURL(f),
                     });
+                  }
                 }}
               />
             </div>
+
             <div className="project-place-editor-fields">
               <input
                 className="input"
                 placeholder="Tên địa điểm *"
                 value={placeForm.name}
                 onChange={(e) =>
-                  setPlaceForm({ ...placeForm, name: e.target.value })
+                  setPlaceForm({
+                    ...placeForm,
+                    name: e.target.value,
+                  })
                 }
               />
+
               <select
                 className="input"
                 value={placeForm.category}
                 onChange={(e) =>
-                  setPlaceForm({ ...placeForm, category: e.target.value })
+                  setPlaceForm({
+                    ...placeForm,
+                    category: e.target.value,
+                  })
                 }
               >
                 {categoryOptions.map((x) => (
                   <option key={x}>{x}</option>
                 ))}
               </select>
+
               <input
                 className="input"
                 type="number"
@@ -890,9 +1103,13 @@ export default function ProjectContentPage() {
                 placeholder="Số phút"
                 value={placeForm.travel_minutes}
                 onChange={(e) =>
-                  setPlaceForm({ ...placeForm, travel_minutes: e.target.value })
+                  setPlaceForm({
+                    ...placeForm,
+                    travel_minutes: e.target.value,
+                  })
                 }
               />
+
               <input
                 className="input"
                 type="number"
@@ -901,17 +1118,25 @@ export default function ProjectContentPage() {
                 placeholder="Khoảng cách (km)"
                 value={placeForm.distance_km}
                 onChange={(e) =>
-                  setPlaceForm({ ...placeForm, distance_km: e.target.value })
+                  setPlaceForm({
+                    ...placeForm,
+                    distance_km: e.target.value,
+                  })
                 }
               />
+
               <input
                 className="input full"
                 placeholder="Ghi chú / mô tả ngắn"
                 value={placeForm.note}
                 onChange={(e) =>
-                  setPlaceForm({ ...placeForm, note: e.target.value })
+                  setPlaceForm({
+                    ...placeForm,
+                    note: e.target.value,
+                  })
                 }
               />
+
               <div className="actions-row full">
                 <button className="btn btn-primary" disabled={busy}>
                   {busy
@@ -920,22 +1145,132 @@ export default function ProjectContentPage() {
                       ? "Lưu thay đổi"
                       : "Lưu mục"}
                 </button>
+
                 {editingPlace && (
-                  <button type="button" className="btn" onClick={resetPlace}>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={resetPlace}
+                  >
                     Hủy
                   </button>
                 )}
               </div>
             </div>
           </form>
+
+          {activeSection === "amenity" && editingPlace && (
+            <section
+              className="card"
+              style={{ marginTop: 18, padding: 18 }}
+            >
+              <div className="project-content-title" style={{ marginBottom: 14 }}>
+                <div>
+                  <div className="eyebrow">VIDEO GIỚI THIỆU</div>
+                  <h3 style={{ margin: "5px 0 0" }}>
+                    {placeForm.name || "Nội khu đang chọn"}
+                  </h3>
+                  <p>
+                    Tối đa 3 video cho mỗi tiện ích nội khu. Video sẽ hiện khi khách bấm vào thẻ nội khu.
+                  </p>
+                </div>
+                <span className="project-section-count">
+                  {placeVideos.filter((v) => v.project_place_id === editingPlace).length}/3 video
+                </span>
+              </div>
+
+              <div className="project-overview-admin-grid">
+                {placeVideos
+                  .filter((v) => v.project_place_id === editingPlace)
+                  .map((video, index) => (
+                    <article key={video.id} className="project-overview-admin-item">
+                      <video
+                        src={video.video_url}
+                        controls
+                        preload="metadata"
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          aspectRatio: "16 / 9",
+                          objectFit: "cover",
+                          background: "#111",
+                        }}
+                      />
+                      <div>
+                        <b>{video.title || `Video ${index + 1}`}</b>
+                        <button
+                          type="button"
+                          className="btn btn-danger-small"
+                          onClick={() => removePlaceVideo(video.id)}
+                          disabled={busy}
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+
+                {!placeVideos.some((v) => v.project_place_id === editingPlace) && (
+                  <div className="project-empty-inline">
+                    Chưa có video.
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginTop: 16 }}>
+                <label className="editor-label">Thêm video giới thiệu</label>
+                <input
+                  className="input"
+                  type="file"
+                  accept="video/*"
+                  multiple
+                  disabled={
+                    busy ||
+                    placeVideos.filter((v) => v.project_place_id === editingPlace).length >= 3
+                  }
+                  onChange={(e) => {
+                    const current = placeVideos.filter(
+                      (v) => v.project_place_id === editingPlace,
+                    ).length;
+                    setVideoFiles(
+                      Array.from(e.target.files || []).slice(0, 3 - current),
+                    );
+                  }}
+                />
+                <p className="field-help">
+                  Chọn tối đa 3 video. Nên dùng MP4, tỷ lệ 16:9 để hiển thị đẹp.
+                </p>
+
+                {videoFiles.length > 0 && (
+                  <div className="actions-row" style={{ marginTop: 12 }}>
+                    <span className="field-help">
+                      Đã chọn {videoFiles.length} video.
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={busy}
+                      onClick={addPlaceVideos}
+                    >
+                      {busy ? "Đang tải..." : "＋ Thêm video"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
           <div className="project-content-items">
             {currentPlaces.map((x) => (
               <article className="project-content-item" key={x.id}>
                 {x.image_url ? (
                   <img src={x.image_url} alt={x.name} />
                 ) : (
-                  <div className="project-content-item-placeholder">📍</div>
+                  <div className="project-content-item-placeholder">
+                    📍
+                  </div>
                 )}
+
                 <div className="project-content-item-main">
                   <b>{x.name}</b>
                   <span>{x.category}</span>
@@ -944,13 +1279,16 @@ export default function ProjectContentPage() {
                       x.travel_minutes != null
                         ? `${x.travel_minutes} phút`
                         : null,
-                      x.distance_km != null ? `${x.distance_km} km` : null,
+                      x.distance_km != null
+                        ? `${x.distance_km} km`
+                        : null,
                       x.note,
                     ]
                       .filter(Boolean)
                       .join(" · ")}
                   </p>
                 </div>
+
                 <div className="actions-row">
                   <button
                     type="button"
@@ -959,6 +1297,7 @@ export default function ProjectContentPage() {
                   >
                     Sửa
                   </button>
+
                   <button
                     type="button"
                     className="btn"
@@ -969,6 +1308,7 @@ export default function ProjectContentPage() {
                 </div>
               </article>
             ))}
+
             {!currentPlaces.length && (
               <div className="project-empty-inline">
                 Chưa có nội dung. Bấm “+ Thêm mục” để bắt đầu.
@@ -977,8 +1317,11 @@ export default function ProjectContentPage() {
           </div>
         </section>
       )}
+
       {message && (
-        <div className="success project-content-message">{message}</div>
+        <div className="success project-content-message">
+          {message}
+        </div>
       )}
     </main>
   );
