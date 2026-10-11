@@ -357,6 +357,7 @@ export default function ProjectPage() {
   style={{
     flex: "1 1 350px",
     minWidth: "300px",
+    marginTop: "7rem",
     display: "flex",
     flexDirection: "column",
     gap: "16px",
